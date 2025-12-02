@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 語言學習工具</title>
+    <style>
+        /* --- 基礎樣式重設與字體 --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+
+        /* --- 導覽列樣式 --- */
+        .navbar {
+            display: flex;
+            background-color: #3f51b5; /* 主要藍色 */
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .nav-btn {
+            background: none;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            margin: 0 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            border-radius: 4px;
+        }
+        .nav-btn:hover {
+            background-color: #5c6bc0;
+        }
+        .nav-btn.active {
+            background-color: #ff9800; /* 亮眼橘色作為活動分頁 */
+        }
+
+        /* --- 內容區域樣式 --- */
+        .container {
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .tab-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            min-height: 500px;
+            display: none; /* 預設隱藏所有內容 */
+        }
+        .tab-content.active {
+            display: block; /* 顯示活動的內容 */
+        }
+
+        /* --- 單字查詢區塊樣式 --- */
+        .search-box {
+            display: flex;
+            margin-bottom: 30px;
+        }
+        .search-box input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 15px;
+            border: 2px solid #ccc;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        .search-box button {
+            background-color: #4CAF50; /* 綠色 */
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .search-box button:hover {
+            background-color: #45a049;
+        }
+
+        .word-card {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 6px;
+            background-color: #fafafa;
+            position: relative;
+        }
+        .word-card h3 {
+            margin-top: 0;
+            color: #3f51b5;
+        }
+        .word-card p {
+            line-height: 1.6;
+        }
+        .favorite-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #ccc;
+        }
+        .favorite-btn.favorited {
+            color: #ff5722; /* 收藏後的顏色 */
+        }
+        
+        /* --- AI 聊天區塊樣式 --- */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 15px;
+            max-width: 80%;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: #e3f2fd; /* 淺藍色 */
+            text-align: right;
+        }
+        .ai-message {
+            align-self: flex-start;
+            background-color: #e8f5e9; /* 淺綠色 */
+        }
+        .chat-input {
+            display: flex;
+        }
+        .chat-input input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px 0 0 4px;
+        }
+        .chat-input button {
+            background-color: #2196F3; /* 藍色 */
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 0 4px 4px 0;
+        }
+
+        /* --- 收藏列表樣式 --- */
+        .collection-list {
+            list-style: none;
+            padding: 0;
+        }
+        .collection-list li {
+            padding: 15px;
+            border-bottom: 1px dashed #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .collection-list li:last-child {
+            border-bottom: none;
+        }
+        .remove-btn {
+            background-color: #f44336; /* 紅色 */
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <button class="nav-btn active" onclick="showTab('tab-search')">📖 單字查詢</button>
+        <button class="nav-btn" onclick="showTab('tab-collection')">⭐ 我的收藏</button>
+    </div>
+
+    <div class="container">
+        
+        <div id="tab-search" class="tab-content active">
+            <h2>📖 單字查詢與學習</h2>
+            <div class="search-box">
+                <input type="text" placeholder="請輸入您想查詢的單字..." id="wordInput">
+                <button onclick="searchWord()">查詢</button>
+            </div>
+            
+            <div id="wordResult" class="word-card">
+                <button class="favorite-btn" onclick="toggleFavorite(this)">❤️</button>
+                <h3>Example (範例單字)</h3>
+                <p><strong>[ˈɛksæmpəl]</strong> 🔊</p>
+                <p><strong>詞性：</strong> 名詞 (noun)</p>
+                <p><strong>解釋：</strong> something that is typical of the group of things that it is a part of.</p>
+                <p><strong>例句：</strong> The teacher gave us an excellent **example** of how to use the new word.</p>
+                <p style="font-size: 0.9em; color: #666;">*在實際應用中，這個區塊的內容會由程式碼根據 API 查詢結果動態生成。</p>
+            </div>
+
+        </div>
+        <div id="tab-collection" class="tab-content">
+            <h2>⭐ 我的收藏單字</h2>
+            <ul class="collection-list" id="myCollectionList">
+                <li>
+                    <span>**Diligent** (adj.) 勤奮的</span>
+                    <button class="remove-btn" onclick="removeWord(this)">移除</button>
+                </li>
+                <li>
+                    <span>**Integrity** (n.) 正直</span>
+                    <button class="remove-btn" onclick="removeWord(this)">移除</button>
+                </li>
+            </ul>
+            <p id="emptyCollectionMessage" style="text-align: center; color: #999; margin-top: 50px; display: none;">您的收藏清單目前是空的喔！</p>
+        </div>
+
+    </div>
+
+    <script>
+        function showTab(tabId) {
+            // 隱藏所有內容分頁
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // 移除所有導覽按鈕的 active 樣式
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 顯示選擇的分頁
+            document.getElementById(tabId).classList.add('active');
+            // 設定點擊的按鈕為 active 樣式
+            event.currentTarget.classList.add('active');
+        }
+
+        function toggleFavorite(btn) {
+            const wordCard = btn.closest('.word-card');
+            const dataString = wordCard.getAttribute('data-word-data');
+            
+            if (!dataString) {
+                alert('無法收藏，因為卡片上沒有單字資料。');
+                return;
+            }
+
+            const wordData = JSON.parse(dataString);
+            
+            // 1. 讀取現有的收藏清單
+            let favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
+            
+            // 檢查單字是否已存在
+            const index = favorites.findIndex(fav => fav.word === wordData.word);
+
+            if (index === -1) {
+                // 如果不存在，則新增
+                favorites.push(wordData);
+                btn.classList.add('favorited');
+                alert(`單字 ${wordData.word} 已收藏！`);
+            } else {
+                // 如果存在，則移除
+                favorites.splice(index, 1);
+                btn.classList.remove('favorited');
+                alert(`單字 ${wordData.word} 已取消收藏。`);
+            }
+            
+            // 2. 將更新後的清單寫回 localStorage
+            localStorage.setItem('myFavorites', JSON.stringify(favorites));
+
+            // 如果使用者在收藏頁面，則重新渲染清單
+            if (document.getElementById('tab-collection').classList.contains('active')) {
+                renderCollection();
+            }
+        }
+      
+        function toggleFavorite(btn) {
+            // 切換收藏按鈕的樣式
+            btn.classList.toggle('favorited');
+            const isFavorited = btn.classList.contains('favorited');
+            alert(isFavorited ? '單字已收藏！' : '單字已取消收藏。');
+            
+            // 實際應用中，這裡會將單字資料儲存到 localStorage 或資料庫
+        }
+            }
+        }
+
+        function removeWord(btn) {
+            const listItem = btn.parentNode;
+            listItem.remove(); // 從列表中移除該單字
+            alert('單字已從收藏清單移除！');
+            // 實際應用中，這裡需要更新 localStorage 或資料庫
+        }
+
+        // 頁面載入時，檢查收藏列表是否為空
+        document.addEventListener('DOMContentLoaded', () => {
+            const collectionList = document.getElementById('myCollectionList');
+            const emptyMessage = document.getElementById('emptyCollectionMessage');
+
+            // 這裡只是檢查範例清單是否為空，實際應檢查本地儲存
+            if (collectionList.children.length === 0) {
+                emptyMessage.style.display = 'block';
+            }
+        });
+      
+      // 【新增：渲染收藏清單的函式】
+        function renderCollection() {
+            const collectionList = document.getElementById('myCollectionList');
+            const emptyMessage = document.getElementById('emptyCollectionMessage');
+            
+            // 1. 從 localStorage 讀取收藏清單
+            const favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
+            
+            // 清空現有的列表內容
+            collectionList.innerHTML = ''; 
+
+            if (favorites.length === 0) {
+                // 如果清單為空，顯示提示訊息
+                emptyMessage.style.display = 'block';
+            } else {
+                // 如果有單字，隱藏提示訊息並生成列表
+                emptyMessage.style.display = 'none';
+                
+                favorites.forEach(item => {
+                    const listItem = document.createElement('li');
+                    // 使用 data-word 屬性來標記要刪除的單字
+                    listItem.innerHTML = `
+                        <span>
+                            <strong>${item.word}</strong> (${item.partOfSpeech}) - ${item.definition}
+                        </span>
+                        <button class="remove-btn" onclick="removeWordFromList('${item.word}')">移除</button>
+                    `;
+                    collectionList.appendChild(listItem);
+                });
+            }
+        }
+        
+        // 【新增：從收藏列表中移除單字 (替換舊的 removeWord 函式)】
+        function removeWordFromList(wordToRemove) {
+            let favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
+            
+            // 找到要移除的單字的索引
+            const index = favorites.findIndex(fav => fav.word === wordToRemove);
+
+            if (index !== -1) {
+                // 移除該單字
+                favorites.splice(index, 1);
+                // 存回 localStorage
+                localStorage.setItem('myFavorites', JSON.stringify(favorites));
+                
+                // 重新渲染列表以更新畫面
+                renderCollection();
+                alert(`單字 ${wordToRemove} 已移除。`);
+            }
+        }
+
+        // 【修改：確保在切換到收藏分頁時，會執行 renderCollection】
+        function showTab(tabId) {
+            // 隱藏所有內容分頁
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            // 移除所有導覽按鈕的 active 樣式
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 顯示選擇的分頁
+            document.getElementById(tabId).classList.add('active');
+            // 設定點擊的按鈕為 active 樣式
+            event.currentTarget.classList.add('active');
+            
+            // --- 【新增這一段邏輯】 ---
+            if (tabId === 'tab-collection') {
+                renderCollection();
+            }
+        }
+        
+        // 【刪除或替換：刪除原本的模擬移除函式】
+        // 請確保您已刪除或用 removeWordFromList 替換掉原本的 removeWord 函式
+        /* 舊的模擬函式類似這樣：
+        function removeWord(btn) {
+            const listItem = btn.parentNode;
+            listItem.remove(); 
+            alert('單字已從收藏清單移除！');
+        }
+        */
+        
+        // 【刪除或替換：刪除頁面載入時的檢查】
+        // 因為新的 showTab/renderCollection 已經負責處理了
+        /* 舊的 DOMContentLoaded 函式類似這樣：
+        document.addEventListener('DOMContentLoaded', () => {
+            // ... 裡面的程式碼 ...
+        });
+        */
+    </script>
+
+</body>
+</html>
