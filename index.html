@@ -228,7 +228,8 @@
 
     </div>
 
-    <script>
+<script>
+        // 確保 showTab 能夠正確切換分頁，並在切換到收藏頁時渲染列表
         function showTab(tabId) {
             // 隱藏所有內容分頁
             document.querySelectorAll('.tab-content').forEach(tab => {
@@ -242,15 +243,96 @@
             // 顯示選擇的分頁
             document.getElementById(tabId).classList.add('active');
             // 設定點擊的按鈕為 active 樣式
-            event.currentTarget.classList.add('active');
+            // 注意：event.currentTarget 僅在函數是直接在 HTML 屬性中調用時有效
+            const targetButton = document.querySelector(`[onclick="showTab('${tabId}')"]`);
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
+            
+            // 如果切換到收藏分頁，則重新渲染清單
+            if (tabId === 'tab-collection') {
+                renderCollection();
+            }
         }
 
+        // =======================================================
+        // 【核心修正：單字查詢函式 - 重新加入 API 邏輯】
+        // =======================================================
+        async function searchWord() {
+            const word = document.getElementById('wordInput').value.trim().toLowerCase();
+            const resultDiv = document.getElementById('wordResult');
+            
+            if (!word) {
+                resultDiv.innerHTML = `<p style="color:red;">請輸入單字。</p>`;
+                resultDiv.removeAttribute('data-word-data'); 
+                return;
+            }
+            
+            const apiUrl = `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`;
+
+            resultDiv.innerHTML = `<p>載入中... 請稍候。</p>`;
+            
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (response.status === 404) {
+                    resultDiv.innerHTML = `<p style="color:red;">找不到單字 "${word}" 的資料，請檢查拼字。</p>`;
+                    resultDiv.removeAttribute('data-word-data'); 
+                    return;
+                }
+
+                const entry = data[0];
+                const meanings = entry.meanings && entry.meanings.length > 0 ? entry.meanings[0] : null; 
+                const definition = meanings && meanings.definitions && meanings.definitions.length > 0 ? meanings.definitions[0] : {}; 
+                const audioUrl = entry.phonetics.find(p => p.audio)?.audio || '';
+                const audioButton = audioUrl ? 
+                    `<button onclick="new Audio('${audioUrl}').play()" style="background:none; border:none; font-size:1.5em; cursor:pointer;">🔊</button>` 
+                    : '🔊';
+
+                // --- 設置收藏資料 ---
+                const wordData = {
+                    word: entry.word,
+                    partOfSpeech: meanings ? meanings.partOfSpeech : 'N/A',
+                    definition: definition.definition || '無解釋',
+                    phonetic: entry.phonetic || 'N/A'
+                };
+                resultDiv.setAttribute('data-word-data', JSON.stringify(wordData));
+
+                // 檢查單字是否已經在收藏清單中
+                const favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
+                const isFavorited = favorites.some(fav => fav.word === entry.word);
+                const favoriteClass = isFavorited ? 'favorited' : '';
+
+
+                // 顯示結果
+                resultDiv.innerHTML = `
+                    <button class="favorite-btn ${favoriteClass}" onclick="toggleFavorite(this)">❤️</button>
+                    <h3>${entry.word}</h3>
+                    <p>
+                        <strong>音標：</strong> ${entry.phonetic || 'N/A'} ${audioButton}
+                    </p>
+                    <p><strong>詞性：</strong> ${meanings ? meanings.partOfSpeech : 'N/A'}</p>
+                    <p><strong>解釋：：</strong> ${definition.definition || '無解釋'}</p>
+                    <p><strong>例句：</strong> ${definition.example || '無提供例句'}</p>
+                `;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color:red;">查詢時發生錯誤: ${error.message}</p>`;
+                resultDiv.removeAttribute('data-word-data');
+                console.error('查詢錯誤:', error);
+            }
+        }
+
+        // =======================================================
+        // 【核心修正：單字收藏函式 - 移除重複定義，保留正確邏輯】
+        // =======================================================
         function toggleFavorite(btn) {
             const wordCard = btn.closest('.word-card');
             const dataString = wordCard.getAttribute('data-word-data');
             
             if (!dataString) {
-                alert('無法收藏，因為卡片上沒有單字資料。');
+                alert('無法收藏，請先查詢一個單字。');
                 return;
             }
 
@@ -282,37 +364,10 @@
                 renderCollection();
             }
         }
-      
-        function toggleFavorite(btn) {
-            // 切換收藏按鈕的樣式
-            btn.classList.toggle('favorited');
-            const isFavorited = btn.classList.contains('favorited');
-            alert(isFavorited ? '單字已收藏！' : '單字已取消收藏。');
-            
-            // 實際應用中，這裡會將單字資料儲存到 localStorage 或資料庫
-        }
-            }
-        }
-
-        function removeWord(btn) {
-            const listItem = btn.parentNode;
-            listItem.remove(); // 從列表中移除該單字
-            alert('單字已從收藏清單移除！');
-            // 實際應用中，這裡需要更新 localStorage 或資料庫
-        }
-
-        // 頁面載入時，檢查收藏列表是否為空
-        document.addEventListener('DOMContentLoaded', () => {
-            const collectionList = document.getElementById('myCollectionList');
-            const emptyMessage = document.getElementById('emptyCollectionMessage');
-
-            // 這裡只是檢查範例清單是否為空，實際應檢查本地儲存
-            if (collectionList.children.length === 0) {
-                emptyMessage.style.display = 'block';
-            }
-        });
-      
-      // 【新增：渲染收藏清單的函式】
+        
+        // =======================================================
+        // 【收藏列表渲染和移除邏輯】
+        // =======================================================
         function renderCollection() {
             const collectionList = document.getElementById('myCollectionList');
             const emptyMessage = document.getElementById('emptyCollectionMessage');
@@ -320,7 +375,7 @@
             // 1. 從 localStorage 讀取收藏清單
             const favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
             
-            // 清空現有的列表內容
+            // 清空現有的列表內容 (移除範例單字)
             collectionList.innerHTML = ''; 
 
             if (favorites.length === 0) {
@@ -332,7 +387,6 @@
                 
                 favorites.forEach(item => {
                     const listItem = document.createElement('li');
-                    // 使用 data-word 屬性來標記要刪除的單字
                     listItem.innerHTML = `
                         <span>
                             <strong>${item.word}</strong> (${item.partOfSpeech}) - ${item.definition}
@@ -344,64 +398,23 @@
             }
         }
         
-        // 【新增：從收藏列表中移除單字 (替換舊的 removeWord 函式)】
+        // 【移除收藏單字的函式】
         function removeWordFromList(wordToRemove) {
             let favorites = JSON.parse(localStorage.getItem('myFavorites') || '[]');
             
-            // 找到要移除的單字的索引
             const index = favorites.findIndex(fav => fav.word === wordToRemove);
 
             if (index !== -1) {
-                // 移除該單字
                 favorites.splice(index, 1);
-                // 存回 localStorage
                 localStorage.setItem('myFavorites', JSON.stringify(favorites));
                 
                 // 重新渲染列表以更新畫面
                 renderCollection();
                 alert(`單字 ${wordToRemove} 已移除。`);
             }
+            // 這裡不需要原本 HTML 中的 removeWord(btn) 函式了
         }
 
-        // 【修改：確保在切換到收藏分頁時，會執行 renderCollection】
-        function showTab(tabId) {
-            // 隱藏所有內容分頁
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            // 移除所有導覽按鈕的 active 樣式
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-
-            // 顯示選擇的分頁
-            document.getElementById(tabId).classList.add('active');
-            // 設定點擊的按鈕為 active 樣式
-            event.currentTarget.classList.add('active');
-            
-            // --- 【新增這一段邏輯】 ---
-            if (tabId === 'tab-collection') {
-                renderCollection();
-            }
-        }
-        
-        // 【刪除或替換：刪除原本的模擬移除函式】
-        // 請確保您已刪除或用 removeWordFromList 替換掉原本的 removeWord 函式
-        /* 舊的模擬函式類似這樣：
-        function removeWord(btn) {
-            const listItem = btn.parentNode;
-            listItem.remove(); 
-            alert('單字已從收藏清單移除！');
-        }
-        */
-        
-        // 【刪除或替換：刪除頁面載入時的檢查】
-        // 因為新的 showTab/renderCollection 已經負責處理了
-        /* 舊的 DOMContentLoaded 函式類似這樣：
-        document.addEventListener('DOMContentLoaded', () => {
-            // ... 裡面的程式碼 ...
-        });
-        */
     </script>
 
 </body>
